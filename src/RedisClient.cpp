@@ -98,7 +98,12 @@ std::vector<RedisKey> RedisClient::scanKeys(const std::string& pattern, int coun
         if (!reply) break;
         
         if (reply->type == REDIS_REPLY_ARRAY && reply->elements == 2) {
-            cursor = std::stoll(reply->element[0]->str);
+            // Parse cursor safely
+            try {
+                cursor = std::stoll(reply->element[0]->str);
+            } catch (const std::exception&) {
+                cursor = 0; // Stop on parse error
+            }
             
             if (reply->element[1]->type == REDIS_REPLY_ARRAY) {
                 for (size_t i = 0; i < reply->element[1]->elements; i++) {

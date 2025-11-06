@@ -172,10 +172,9 @@ static void ShowMainWindow() {
                 ImGui::Separator();
                 
                 for (int i = 0; i < (int)g_keys.size(); i++) {
-                    char label[256];
-                    snprintf(label, sizeof(label), "%s [%s]", g_keys[i].key.c_str(), g_keys[i].type.c_str());
+                    std::string label = g_keys[i].key + " [" + g_keys[i].type + "]";
                     
-                    if (ImGui::Selectable(label, g_selectedKeyIndex == i)) {
+                    if (ImGui::Selectable(label.c_str(), g_selectedKeyIndex == i)) {
                         g_selectedKeyIndex = i;
                         g_selectedKeyValue = g_redisClient.get(g_keys[i].key);
                     }
@@ -193,9 +192,14 @@ static void ShowMainWindow() {
                     ImGui::Separator();
                     
                     ImGui::Text("Value:");
-                    ImGui::InputTextMultiline("##value", const_cast<char*>(g_selectedKeyValue.c_str()), 
-                                              g_selectedKeyValue.length() + 1, ImVec2(-1, -40), 
-                                              ImGuiInputTextFlags_ReadOnly);
+                    static char valueBuf[8192];
+                    size_t copyLen = (g_selectedKeyValue.length() < sizeof(valueBuf) - 1) ? 
+                                     g_selectedKeyValue.length() : sizeof(valueBuf) - 1;
+                    memcpy(valueBuf, g_selectedKeyValue.c_str(), copyLen);
+                    valueBuf[copyLen] = '\0';
+                    
+                    ImGui::InputTextMultiline("##value", valueBuf, sizeof(valueBuf), 
+                                              ImVec2(-1, -40), ImGuiInputTextFlags_ReadOnly);
                     
                     if (ImGui::Button("Delete Key")) {
                         if (g_redisClient.del(key.key)) {
