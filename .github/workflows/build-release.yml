@@ -1,0 +1,92 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+    
+    - name: Build
+      run: |
+        chmod +x build-linux.sh
+        ./build-linux.sh
+    
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-executable
+        path: releases/v1.0.0/linux/*
+        retention-days: 30
+
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+    
+    - name: Build
+      run: |
+        .\build-windows.bat
+    
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-executable
+        path: releases/v1.0.0/windows/*
+        retention-days: 30
+
+  create-release:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download Linux artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: linux-executable
+        path: releases/v1.0.0/linux
+    
+    - name: Download Windows artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: windows-executable
+        path: releases/v1.0.0/windows
+    
+    - name: Commit release files
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add releases/
+        git diff --staged --quiet || git commit -m "Add release executables for version 1.0.0"
+    
+    - name: Push changes
+      uses: ad-m/github-push-action@v0.8.0
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.ref }}
